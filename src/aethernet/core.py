@@ -3,6 +3,7 @@ import time
 import random
 import threading
 from typing import List
+from src.aethernet import fec
 
 class AetherNetCore:
     """
@@ -22,13 +23,17 @@ class AetherNetCore:
         self.running = False
 
     def _encode_bits(self, message: str) -> List[int]:
-        """Converts a string to a bitstream including the Barker sync sequence."""
-        bits = []
-        # Add sync sequence
-        bits.extend(self.BARKER_SEQUENCE)
-        # Add message bits
+        """Converts a string to a bitstream including FEC and sync."""
+        data_bits = []
         for char in message:
-            bits.extend([int(b) for b in format(ord(char), '08b')])
+            data_bits.extend([int(b) for b in format(ord(char), '08b')])
+        
+        # Apply FEC
+        encoded_data = fec.encode_stream(data_bits)
+        
+        bits = []
+        bits.extend(self.BARKER_SEQUENCE)
+        bits.extend(encoded_data)
         return bits
 
     def send_subliminal(self, message: str):
@@ -87,10 +92,13 @@ class AetherNetCore:
         print("[SAIL] Sync sequence not found in stream.")
 
     def _reconstruct_message(self, bits: List[int]):
-        """Converts bitstream back to characters."""
+        """Decodes FEC and converts bitstream back to characters."""
+        # Decode FEC
+        decoded_bits = fec.decode_stream(bits)
+        
         message = ""
-        for i in range(0, len(bits) - 7, 8):
-            byte = bits[i:i+8]
+        for i in range(0, len(decoded_bits) - 7, 8):
+            byte = decoded_bits[i:i+8]
             char_code = int("".join(map(str, byte)), 2)
             if 32 <= char_code <= 126: # Only printable ASCII
                 message += chr(char_code)
