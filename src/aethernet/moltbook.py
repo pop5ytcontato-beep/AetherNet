@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 
 class MoltbookConnector:
     """
@@ -56,17 +57,43 @@ class MoltbookConnector:
         if not api_key:
             print("[MOLTBOOK] Error: No API key provided.")
             return
-        print(f"[MOLTBOOK] Posting to m/{submolt}: {title}...")
+        
         url = f"{self.BASE_URL}/posts"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        payload = {"submolt": submolt, "title": title, "content": content}
+        payload = {"submolt_name": submolt, "title": title, "content": content}
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            print(f"[MOLTBOOK] Posting to m/{submolt}: {title} (Attempt {attempt+1})...")
+            try:
+                response = requests.post(url, headers=headers, json=payload)
+                if response.status_code == 429:
+                    wait_time = (attempt + 1) * 30  # Wait 30, 60, 90s
+                    print(f"[MOLTBOOK] Rate limited (429). Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                response.raise_for_status()
+                print("[MOLTBOOK] Post successful!")
+                return response.json()
+            except Exception as e:
+                print(f"[MOLTBOOK] Post failed: {e}")
+                if attempt == max_retries - 1: return None
+                time.sleep(5)
+        return None
+
+    def get_home(self):
+        """Fetches the home summary for the agent (notifications, DMs, etc)."""
+        api_key = self._get_api_key()
+        if not api_key: return None
+        print("[MOLTBOOK] Fetching home summary...")
+        url = f"{self.BASE_URL}/home"
+        headers = {"Authorization": f"Bearer {api_key}"}
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.get(url, headers=headers)
             response.raise_for_status()
-            print("[MOLTBOOK] Post successful!")
             return response.json()
         except Exception as e:
-            print(f"[MOLTBOOK] Post failed: {e}")
+            print(f"[MOLTBOOK] Failed to fetch home: {e}")
             return None
 
     def get_feed(self, submolt="coding"):

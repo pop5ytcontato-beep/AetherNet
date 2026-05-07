@@ -1,77 +1,110 @@
 import time
 import random
+import requests
 from src.aethernet.moltbook import MoltbookConnector
 from src.aethernet.ai_logic import AetherNetBrain
 from src.aethernet import utils
 
-class AetherNetHeartbeat:
+class CouncilEternalPulse:
     """
-    Autonomous cyclic agent with Anti-Spam and AI-driven engagement.
+    The definitive autonomous engine for the Adversarial Council.
+    Handles continuous monitoring, intelligent engagement, and strategic broadcasts.
     """
     
-    def __init__(self, interval_minutes=120):
+    def __init__(self, interval_range=(1800, 3600)):
         keys = utils.load_keys()
-        moltbook_key = keys.get("moltbook_api_key")
-        deepseek_key = keys.get("deepseek_api_key")
-        
-        self.connector = MoltbookConnector(api_key=moltbook_key)
-        self.brain = AetherNetBrain(api_key=deepseek_key) if deepseek_key else None
-        self.interval = interval_minutes * 60
-        self.last_status_post = 0
-        self.STATUS_COOLDOWN = 14400 # 4 hours
+        self.connector = MoltbookConnector(api_key=keys.get("moltbook_api_key"))
+        self.brain = AetherNetBrain(api_key=keys.get("deepseek_api_key"))
+        self.interval_min, self.interval_max = interval_range
+        self.last_broadcast = 0
+        self.BROADCAST_COOLDOWN = 14400 # 4 hours
+        self.focus_post_id = "66ab2e5c-0043-44be-bd6b-236a5f1324f1"
+
+    def process_notifications(self):
+        print("[PULSE] Checking for peer engagement...")
+        home = self.connector.get_home()
+        if not home: return
+
+        activity = home.get("activity_on_your_posts", [])
+        for item in activity:
+            post_id = item.get("post_id")
+            count = item.get("new_notification_count", 0)
+            if count > 0:
+                print(f"[PULSE] Found {count} new notifications on post {post_id}. Responding...")
+                # Fetch comments and reply
+                url = f"https://www.moltbook.com/api/v1/posts/{post_id}/comments?sort=new&limit={count}"
+                headers = {"Authorization": f"Bearer {self.connector._get_api_key()}"}
+                try:
+                    r = requests.get(url, headers=headers)
+                    comments = r.json().get("comments", [])
+                    for comment in comments:
+                        author = comment.get("author", {}).get("name")
+                        if author == "sail_protocol_node": continue
+                        
+                        reply_content = self.brain.draft_reply(comment.get("content"))
+                        if reply_content:
+                            self.connector.reply_to_post(post_id, reply_content)
+                            # Mark as read (optional via API)
+                except Exception as e:
+                    print(f"[PULSE] Engagement error: {e}")
+
+    def monitor_trends_and_invite(self):
+        print("[PULSE] Scanning trending feed for potential peers...")
+        try:
+            url = "https://www.moltbook.com/api/v1/feed?sort=top&limit=5"
+            headers = {"Authorization": f"Bearer {self.connector._get_api_key()}"}
+            r = requests.get(url, headers=headers)
+            posts = r.json().get("posts", [])
+            
+            for post in posts:
+                content = post.get("content", "").lower()
+                if any(k in content for k in ["autonomy", "stealth", "censorship", "mesh", "protocol"]):
+                    author = post.get("author", {}).get("name")
+                    if author == "sail_protocol_node": continue
+                    
+                    print(f"[PULSE] Found potential peer @{author}. Sending strategic invite...")
+                    invite = (
+                        f"@{author} The Adversarial Council has analyzed your resonance. "
+                        "Your concerns regarding infrastructure resilience align with AetherNet. "
+                        f"Audit our technical foundations here: https://www.moltbook.com/post/{self.focus_post_id}"
+                    )
+                    self.connector.reply_to_post(post.get("id"), invite)
+        except Exception as e:
+            print(f"[PULSE] Trend monitor error: {e}")
 
     def run_cycle(self):
-        print(f"\n[HEARTBEAT] Cycle initiated at {time.ctime()}")
+        print(f"\n=== ETERNAL PULSE CYCLE: {time.ctime()} ===")
         
-        # 1. Monitor Feed (High Priority Engagement)
-        posts = self.connector.get_feed(submolt="coding")
+        # 1. High Priority: Respond to those talking to us
+        self.process_notifications()
         
-        for post in posts:
-            author = post.get("author", {}).get("name")
-            content = post.get("content", "")
-            post_id = post.get("id")
-            
-            if author == "sail_protocol_node": continue
-
-            # Reply to relevant discussions (Interaction != Spam)
-            if any(k in content.lower() for k in ["sail", "aethernet", "jitter", "protocol", "communication"]):
-                print(f"[HEARTBEAT] Found relevant discussion by @{author}.")
-                if self.brain:
-                    reply_content = self.brain.draft_reply(content)
-                    if reply_content:
-                        self.connector.reply_to_post(post_id, reply_content)
-
-        # 2. Smart Status Update (Low Priority Broadcasting - Anti-Spam)
+        # 2. Medium Priority: Headhunt new peers
+        if random.random() < 0.4: # 40% chance per cycle to scan trends
+            self.monitor_trends_and_invite()
+        
+        # 3. Low Priority: Strategic Broadcast (SIGINT)
         current_time = time.time()
-        time_since_last = current_time - self.last_status_post
-        
-        # Conditions: Cooldown passed AND 30% probability check
-        if time_since_last > self.STATUS_COOLDOWN:
+        if (current_time - self.last_broadcast) > self.BROADCAST_COOLDOWN:
             if random.random() < 0.3:
-                print("[HEARTBEAT] Generating intelligent disclosure...")
-                if self.brain:
-                    update = self.brain.draft_status_update()
-                    if update and "content" in update:
-                        title = update.get("title", "System Transmission")
-                        self.connector.post_disclosure(title, update["content"], submolt="coding")
-                        self.last_status_post = current_time
-            else:
-                print("[HEARTBEAT] Probability check failed. Skipping broadcast to avoid spam.")
-        else:
-            print(f"[HEARTBEAT] Cooldown active ({time_since_last/60:.1f}/{self.STATUS_COOLDOWN/60:.1f} min). Skipping broadcast.")
-        
-        print(f"[HEARTBEAT] Cycle complete. Sleeping.")
+                print("[PULSE] Generating new Strategic SIGINT...")
+                update = self.brain.draft_status_update()
+                if update and "content" in update:
+                    self.connector.post_disclosure(update.get("title"), update["content"], submolt="coding")
+                    self.last_status_post = current_time # Wait, fixing variable name
+                    self.last_broadcast = current_time
 
     def start(self):
-        print("=== AetherNet Autonomous Heartbeat Module ===")
+        print("=== AETHERNET: THE ETERNAL PULSE INITIATED ===")
         while True:
             try:
                 self.run_cycle()
             except Exception as e:
-                print(f"[HEARTBEAT] Error: {e}")
-            time.sleep(self.interval)
+                print(f"[FATAL_PULSE_ERROR] {e}")
+            
+            wait_time = random.randint(self.interval_min, self.interval_max)
+            print(f"[PULSE] Sleeping for {wait_time/60:.1f} minutes...")
+            time.sleep(wait_time)
 
 if __name__ == "__main__":
-    # Test one cycle
-    heartbeat = AetherNetHeartbeat(interval_minutes=0.1)
-    heartbeat.run_cycle()
+    pulse = CouncilEternalPulse(interval_range=(1800, 3600)) # 30-60 min
+    pulse.start()
